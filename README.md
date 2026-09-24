@@ -11,8 +11,10 @@ Background and measurements: [docs/research/laya-pr-review-feasibility.md](docs/
 
 > **Status: experimental.** On the seed eval set most rules rank violations
 > above compliant code, but probabilities sit in the middle band, and realistic
-> multi-issue hunks are misjudged. Every rule ships as `warning`, so CI never
-> blocks. Grow `eval/cases.yaml` before promoting anything to `error`.
+> multi-issue hunks are misjudged. `hardcoded-environment-config` is an `error`
+> rule with thresholds tuned on the 6-case seed set, which is in-sample and
+> too small to trust; the rest are warnings. Grow `eval/cases.yaml` and re-tune
+> before relying on any gate.
 
 ## How it works
 
