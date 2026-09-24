@@ -1,0 +1,61 @@
+name: Laya review
+
+on:
+  pull_request:
+
+# Read-only: the job only reads the diff. Results go to the job summary and an
+# artifact, so fork PRs work without a write token. Do not switch this to
+# `pull_request_target`.
+permissions:
+  contents: read
+
+concurrency:
+  group: laya-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: |
+            pyproject.toml
+            constraints.txt
+
+      # CPU-only torch: the default Linux wheel pulls several GB of CUDA libraries.
+      - name: Install
+        run: |
+          pip install --index-url https://download.pytorch.org/whl/cpu -c constraints.txt torch
+          pip install -c constraints.txt .
+
+      # The model revision is pinned in the ruleset, so the ruleset hash keys the weights cache.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: laya-weights-${{ hashFiles('.laya/rules.yaml') }}
+
+      - name: Diff
+        run: git diff --no-color --no-ext-diff -U3 "origin/${{ github.base_ref }}...HEAD" > pr.diff
+
+      - name: Review
+        run: >
+          laya-review review
+          --ruleset .laya/rules.yaml
+          --diff pr.diff
+          --json-out laya-report.json
+          --summary-out "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: laya-report
+          path: laya-report.json
+          if-no-files-found: ignore

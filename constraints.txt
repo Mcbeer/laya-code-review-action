@@ -1,0 +1,10 @@
+# Exact runtime versions for reproducible scores. Floating-point output can
+# shift between library builds, so bump these deliberately and re-run the eval.
+laya==0.3.20
+torch==2.14.0
+transformers==5.17.0
+tokenizers==0.23.2
+safetensors==0.8.0
+huggingface-hub==1.33.0
+numpy==2.5.2
+pyyaml==6.0.3

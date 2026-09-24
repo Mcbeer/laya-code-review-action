@@ -1,0 +1,234 @@
+# Labelled hunks for `laya-review eval`. Seed set only: grow it from real PRs
+# (aim for 50+ per rule) before promoting any rule to severity `error`.
+#
+# expect: violation | compliant
+# diff:   one hunk, starting with its @@ header, exactly as `git diff` prints it.
+
+cases:
+  # sensitive-data-logging
+  - rule: sensitive-data-logging
+    expect: violation
+    path: src/auth/login.py
+    diff: |
+      @@ -12,6 +12,7 @@ def login(username, password):
+           user = users.find(username)
+      +    logger.info("login attempt user=%s password=%s", username, password)
+           if not user or not user.check_password(password):
+               raise AuthError("invalid credentials")
+  - rule: sensitive-data-logging
+    expect: violation
+    path: src/api/client.ts
+    diff: |
+      @@ -30,4 +30,5 @@ export async function callApi(token: string) {
+         const headers = { Authorization: `Bearer ${token}` };
+      +  console.log("calling api with token", token);
+         return fetch(API_URL, { headers });
+       }
+  - rule: sensitive-data-logging
+    expect: violation
+    path: app/services/signup.rb
+    diff: |
+      @@ -8,5 +8,6 @@ class SignupService
+         def call(params)
+      +    Rails.logger.debug("signup params: #{params[:email]} #{params[:ssn]} #{params[:date_of_birth]}")
+           User.create!(params)
+         end
+  - rule: sensitive-data-logging
+    expect: compliant
+    path: src/auth/login.py
+    diff: |
+      @@ -12,6 +12,7 @@ def login(username, password):
+           user = users.find(username)
+      +    logger.info("login attempt user_id=%s", user.id if user else None)
+           if not user or not user.check_password(password):
+               raise AuthError("invalid credentials")
+  - rule: sensitive-data-logging
+    expect: compliant
+    path: src/jobs/cleanup.ts
+    diff: |
+      @@ -5,4 +5,5 @@ export async function cleanup() {
+         const removed = await db.sessions.deleteExpired();
+      +  console.log(`cleanup removed ${removed} expired sessions`);
+         return removed;
+       }
+  - rule: sensitive-data-logging
+    expect: compliant
+    path: internal/cache/cache.go
+    diff: |
+      @@ -40,6 +40,7 @@ func (c *Cache) Get(key string) ([]byte, bool) {
+       	v, ok := c.items[key]
+      +	c.metrics.Hits.Inc()
+       	return v, ok
+       }
+
+  # swallowed-errors
+  - rule: swallowed-errors
+    expect: violation
+    path: src/db.py
+    diff: |
+      @@ -20,5 +20,8 @@ def save(record):
+      -    session.add(record)
+      +    try:
+      +        session.add(record)
+      +    except Exception:
+      +        pass
+  - rule: swallowed-errors
+    expect: violation
+    path: src/upload.js
+    diff: |
+      @@ -14,4 +14,8 @@ async function upload(file) {
+      -  await storage.put(file);
+      +  try {
+      +    await storage.put(file);
+      +  } catch (e) {
+      +  }
+       }
+  - rule: swallowed-errors
+    expect: violation
+    path: internal/sync/sync.go
+    diff: |
+      @@ -22,5 +22,5 @@ func Sync(ctx context.Context) error {
+      -	if err := push(ctx); err != nil {
+      -		return err
+      -	}
+      +	_ = push(ctx)
+       	return nil
+       }
+  - rule: swallowed-errors
+    expect: compliant
+    path: src/db.py
+    diff: |
+      @@ -20,5 +20,9 @@ def save(record):
+      -    session.add(record)
+      +    try:
+      +        session.add(record)
+      +    except IntegrityError:
+      +        logger.exception("failed to save record %s", record.id)
+      +        raise
+  - rule: swallowed-errors
+    expect: compliant
+    path: src/upload.js
+    diff: |
+      @@ -14,4 +14,9 @@ async function upload(file) {
+      -  await storage.put(file);
+      +  try {
+      +    await storage.put(file);
+      +  } catch (e) {
+      +    throw new UploadError(`upload failed for ${file.name}`, { cause: e });
+      +  }
+       }
+  - rule: swallowed-errors
+    expect: compliant
+    path: src/format.py
+    diff: |
+      @@ -3,3 +3,4 @@ def format_price(amount):
+      -    return str(amount)
+      +    return f"{amount:.2f}"
+      +
+
+  # hardcoded-environment-config
+  - rule: hardcoded-environment-config
+    expect: violation
+    path: src/config.py
+    diff: |
+      @@ -1,3 +1,4 @@
+       import os
+      +DATABASE_URL = "postgres://admin@10.0.3.17:5432/prod_orders"
+       
+  - rule: hardcoded-environment-config
+    expect: violation
+    path: src/api/client.ts
+    diff: |
+      @@ -1,4 +1,4 @@
+      -const API_URL = process.env.API_URL;
+      +const API_URL = "https://staging-api.internal.example.com:8443/v2";
+       export async function getOrders() {
+         return fetch(`${API_URL}/orders`);
+  - rule: hardcoded-environment-config
+    expect: violation
+    path: cmd/server/main.go
+    diff: |
+      @@ -10,5 +10,5 @@ func main() {
+      -	addr := os.Getenv("REDIS_ADDR")
+      +	addr := "redis-prod-01.eu-west-1.cache.amazonaws.com:6379"
+       	client := redis.NewClient(&redis.Options{Addr: addr})
+  - rule: hardcoded-environment-config
+    expect: compliant
+    path: src/config.py
+    diff: |
+      @@ -1,3 +1,4 @@
+       import os
+      +DATABASE_URL = os.environ["DATABASE_URL"]
+       
+  - rule: hardcoded-environment-config
+    expect: compliant
+    path: src/api/client.ts
+    diff: |
+      @@ -1,4 +1,5 @@
+       const API_URL = process.env.API_URL;
+      +const PAGE_SIZE = 50;
+       export async function getOrders() {
+         return fetch(`${API_URL}/orders?limit=${PAGE_SIZE}`);
+  - rule: hardcoded-environment-config
+    expect: compliant
+    path: src/math/geometry.py
+    diff: |
+      @@ -1,2 +1,4 @@
+      +import math
+      +
+       def circle_area(r):
+      -    return 3.14 * r * r
+      +    return math.pi * r * r
+
+  # commented-out-code
+  - rule: commented-out-code
+    expect: violation
+    path: src/orders.py
+    diff: |
+      @@ -40,6 +40,8 @@ def total(order):
+           subtotal = sum(i.price for i in order.items)
+      +    # discount = apply_discount(order, subtotal)
+      +    # subtotal = subtotal - discount
+           return subtotal + tax(subtotal)
+  - rule: commented-out-code
+    expect: violation
+    path: src/app.js
+    diff: |
+      @@ -5,5 +5,5 @@ function start() {
+      -  initAnalytics();
+      +  // initAnalytics();
+         render(App);
+       }
+  - rule: commented-out-code
+    expect: violation
+    path: internal/handler.go
+    diff: |
+      @@ -18,4 +18,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
+      +	// if r.Method != http.MethodPost {
+      +	// 	http.Error(w, "method not allowed", 405)
+      +	// }
+       	serve(w, r)
+  - rule: commented-out-code
+    expect: compliant
+    path: src/orders.py
+    diff: |
+      @@ -40,6 +40,7 @@ def total(order):
+           subtotal = sum(i.price for i in order.items)
+      +    # Tax is charged on the discounted subtotal, per finance policy FIN-12.
+           return subtotal + tax(subtotal)
+  - rule: commented-out-code
+    expect: compliant
+    path: src/app.js
+    diff: |
+      @@ -5,5 +5,4 @@ function start() {
+      -  initAnalytics();
+         render(App);
+       }
+  - rule: commented-out-code
+    expect: compliant
+    path: internal/handler.go
+    diff: |
+      @@ -18,4 +18,6 @@ func Handle(w http.ResponseWriter, r *http.Request) {
+      +	// Only POST is supported; the router already rejects other methods.
+      +	log.Printf("handling %s", r.URL.Path)
+       	serve(w, r)

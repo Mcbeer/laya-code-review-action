@@ -1,0 +1,54 @@
+# Laya review ruleset.
+#
+# Each rule is asked of every changed hunk as a two-option question:
+#   A = `violation`, B = `compliant`.
+# The model returns p(violation). Per chunk:
+#   p >= fail_at  -> fail
+#   p <= pass_at  -> pass
+#   otherwise     -> unsure (a human should look)
+# A rule's verdict is its worst chunk. Only `severity: error` rules can fail CI.
+#
+# Keep rules to semantic judgements no regex/AST tool can express. Mechanical
+# checks (secrets, lint, tests touched) belong in gitleaks/semgrep/linters.
+#
+# Every rule starts as `warning`. Promote a rule to `error` only after
+# `laya-review eval` shows it is accurate on eval/cases.yaml.
+#
+# `paths` uses fnmatch: `*` also matches `/`, so `*.py` means any Python file.
+
+model:
+  repo: convaiinnovations/laya
+  revision: 55cf4c4ebb4ebe31b2550e8bdf3bd21b99753851
+
+rules:
+  - id: sensitive-data-logging
+    severity: warning
+    question: Does this code change write sensitive data such as passwords, tokens, API keys or personal user information to logs or output?
+    violation: yes, sensitive data is logged or printed
+    compliant: no sensitive data is logged or printed
+    fail_at: 0.8
+    pass_at: 0.2
+
+  - id: swallowed-errors
+    severity: warning
+    question: Does this code change catch an error or exception and then silently ignore it, without logging, handling or re-raising it?
+    violation: yes, an error is caught and silently ignored
+    compliant: no, errors are handled, logged, re-raised or not caught here
+    fail_at: 0.8
+    pass_at: 0.2
+
+  - id: hardcoded-environment-config
+    severity: warning
+    question: Does this code change hardcode environment-specific values such as hostnames, URLs, ports or database addresses that should come from configuration?
+    violation: yes, environment-specific values are hardcoded
+    compliant: no, values come from configuration or are not environment-specific
+    fail_at: 0.8
+    pass_at: 0.2
+
+  - id: commented-out-code
+    severity: warning
+    question: Does this code change add lines of source code that are commented out instead of deleted?
+    violation: yes, commented-out code is added
+    compliant: no commented-out code is added
+    fail_at: 0.8
+    pass_at: 0.2
