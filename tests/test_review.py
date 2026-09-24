@@ -104,7 +104,7 @@ def test_eval_scores_shipped_cases_with_perfect_judge():
 
 
 def test_eval_auroc_is_threshold_free():
-    ruleset = load_ruleset(REPO / ".laya" / "rules.yaml")
+    ruleset = RULESET  # default 0.2 / 0.8 bands
     rule = ruleset.rules[0]
     cases = [
         evaluate.Case(rule.id, Verdict.FAIL, "a", "@@ -1 +1 @@", "+v1"),
